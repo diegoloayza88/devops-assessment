@@ -1,0 +1,14 @@
+apiVersion: v2
+name: vllm-service
+description: vLLM inference server running SmolLM2-135M-Instruct
+type: application
+version: 1.0.0
+appVersion: "0.4.3"
+keywords:
+  - vllm
+  - llm
+  - inference
+  - smollm
+maintainers:
+  - name: Diego
+    email: diegoyloayza@gmail.com

@@ -1,0 +1,14 @@
+apiVersion: v2
+name: fastapi-service
+description: AI Question-Answering FastAPI service backed by vLLM
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - ai
+  - fastapi
+  - llm
+  - qa
+maintainers:
+  - name: Diego
+    email: diegoyloayza@gmail.com

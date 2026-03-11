@@ -1,0 +1,118 @@
+replicaCount: 1
+
+image:
+  repository: vllm/vllm-openai
+  tag: "v0.5.4"
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: "vllm-service"
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: "vllm-service"
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: false   # vLLM needs root to load CUDA drivers
+
+securityContext: {}
+
+# ── Model configuration ───────────────────────────────────────────────────────
+model:
+  # ── Extra environment variables ───────────────────────────────────────────────
+  extraEnv:
+    - name: VLLM_CPU_KVCACHE_SPACE
+      value: "1"
+  name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  # Optional HuggingFace token for gated models
+  hfToken: ""
+  # Device: "cpu" for CPU-only nodes, "cuda" for GPU
+  device: "cpu"
+  dtype: "float32"         # float16 / bfloat16 for GPU
+  maxModelLen: 2048
+  # Number of GPU memory fraction to use (0.0–1.0)
+  gpuMemoryUtilization: "0.90"
+  useVllmArgs: false
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+# ── Resources ─────────────────────────────────────────────────────────────────
+# CPU-only config (SmolLM2-135M fits in ~1GB RAM)
+resources:
+  requests:
+    cpu: "2000m"
+    memory: "4Gi"
+  limits:
+    cpu: "4000m"
+    memory: "8Gi"
+
+# GPU config – uncomment when using g4dn nodes
+# resources:
+#   requests:
+#     cpu: "2000m"
+#     memory: "8Gi"
+#     nvidia.com/gpu: 1
+#   limits:
+#     cpu: "4000m"
+#     memory: "16Gi"
+#     nvidia.com/gpu: 1
+
+# ── Persistence for model cache ───────────────────────────────────────────────
+persistence:
+  enabled: true
+  storageClass: "gp2-csi"
+  accessMode: ReadWriteOnce
+  size: "10Gi"
+  mountPath: "/root/.cache/huggingface"
+
+# ── Probes ───────────────────────────────────────────────────────────────────
+# vLLM exposes /health once the model is loaded – this takes a few minutes
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 120
+  periodSeconds: 30
+  failureThreshold: 5
+  timeoutSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 120
+  periodSeconds: 10
+  failureThreshold: 10
+  timeoutSeconds: 10
+
+# ── Autoscaling ──────────────────────────────────────────────────────────────
+autoscaling:
+  enabled: false   # Scale vLLM manually or via KEDA; HPA not ideal for LLMs
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+# ── Node placement ────────────────────────────────────────────────────────────
+nodeSelector: {}
+  # For GPU nodes, uncomment:
+  # role: gpu
+
+tolerations: []
+  # For GPU taint, uncomment:
+  # - key: "nvidia.com/gpu"
+  #   operator: "Equal"
+  #   value: "true"
+  #   effect: "NoSchedule"
+
+affinity: {}
+
+# ── Pod Disruption Budget ─────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
